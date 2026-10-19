@@ -8,7 +8,7 @@
     return;
   }
 
-  const SUPABASE_URL = "ttps://zzgcmdtyfjndfvwfguwh.supabase.co";
+  const SUPABASE_URL = "https://zzgcmdtyfjndfvwfguwh.supabase.co";
   const SUPABASE_KEY = "sb_publishable_c6vtRVBqocB6vyOjlyG1tg_3aMfdAYx";
   const PAGE_SIZE = 8;
 
