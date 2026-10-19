@@ -31,30 +31,33 @@
 
   const currentOrigin = window.location.origin;
 
-  async function fetchRows(table, params) {
-    const endpoint = new URL(
-      "/rest/v1/" + table,
-      SUPABASE_URL
-    );
+async function fetchRows(table, params) {
+  const endpoint = new URL(
+    `/rest/v1/${table}`,
+    SUPABASE_URL
+  );
 
-    Object.entries(params).forEach(([key, value]) => {
-      endpoint.searchParams.set(key, value);
-    });
+  Object.entries(params).forEach(([key, value]) => {
+    endpoint.searchParams.set(key, value);
+  });
 
-    const response = await fetch(endpoint, {
-      headers: {
-        apikey: SUPABASE_KEY
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(
-        `Failed to load ${table}: HTTP ${response.status}`
-      );
+  const response = await fetch(endpoint.toString(), {
+    method: "GET",
+    headers: {
+      apikey: SUPABASE_KEY,
+      Accept: "application/json"
     }
+  });
 
-    return response.json();
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `Failed to load ${table}: HTTP ${response.status} - ${errorText}`
+    );
   }
+
+  return response.json();
+}
 
   function formatDate(value) {
     if (!value) return "";
