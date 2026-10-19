@@ -334,7 +334,7 @@
         const excerpt = document.createElement("span");
         excerpt.innerHTML = cmsMarkdownToHtml(post.excerpt || "");
 
-        caption.replaceChildren(
+        caption.firstElementChild.replaceChildren(
           heading,
           document.createElement("br"),
           date,
