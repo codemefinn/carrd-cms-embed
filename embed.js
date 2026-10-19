@@ -1,4 +1,3 @@
-
 (function () {
   const script = document.currentScript;
   const blogId = script?.dataset.blogId;
