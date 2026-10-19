@@ -332,7 +332,7 @@
         date.textContent = formatDate(post.published_at);
 
         const excerpt = document.createElement("span");
-        excerpt.textContent = post.excerpt || "";
+        excerpt.innerHTML = cmsMarkdownToHtml(post.excerpt || "");
 
         caption.replaceChildren(
           heading,
