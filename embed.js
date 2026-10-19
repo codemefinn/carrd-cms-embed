@@ -1,59 +1,28 @@
-(function initCarrdCMS() {
+
+(function () {
   const script = document.currentScript;
   const blogId = script?.dataset.blogId;
 
-  if (!blogId) {
-    console.error("[Carrd CMS] Missing data-blog-id.");
-    return;
-  }
-
-  const SUPABASE_URL = "https://zzgcmdtyfjndfvwfguwh.supabase.co";
+  const FUNCTION_URL = "https://zzgcmdtyfjndfvwfguwh.supabase.co/functions/v1/get-blog-posts";
   const SUPABASE_KEY = "sb_publishable_c6vtRVBqocB6vyOjlyG1tg_3aMfdAYx";
-  const PAGE_SIZE = 8;
 
   const gallery = document.getElementById("gallery01");
-  const articleTitle = document.getElementById("text01");
-  const articleDate = document.getElementById("text03");
-  const articleContent = document.getElementById("text02");
+  const list = gallery?.querySelector("ul");
+  const titleElement = document.getElementById("text01");
+  const dateElement = document.getElementById("text03");
+  const contentElement = document.getElementById("text02");
 
-  if (!gallery) {
-    console.error("[Carrd CMS] Missing #gallery01.");
-    return;
-  }
-
-  const list = gallery.querySelector("ul");
-  const template = list?.querySelector("li");
-
-  if (!list || !template) {
-    console.error("[Carrd CMS] Missing Gallery list template.");
-    return;
-  }
-
-  const currentOrigin = window.location.origin;
-
-  async function fetchRows(table, params) {
-    const endpoint = new URL(
-      "/rest/v1/" + table,
-      SUPABASE_URL
+  if (!blogId || !list || !list.querySelector("li")) {
+    console.error(
+      "[Carrd CMS] Missing blog ID or Gallery template."
     );
+    return;
+  }
 
-    Object.entries(params).forEach(([key, value]) => {
-      endpoint.searchParams.set(key, value);
-    });
+  const template = list.querySelector("li").cloneNode(true);
 
-    const response = await fetch(endpoint, {
-      headers: {
-        apikey: SUPABASE_KEY
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(
-        `Failed to load ${table}: HTTP ${response.status}`
-      );
-    }
-
-    return response.json();
+  function getPostId() {
+    return new URL(window.location.href).searchParams.get("post");
   }
 
   function formatDate(value) {
@@ -63,141 +32,92 @@
 
     if (Number.isNaN(date.getTime())) return "";
 
-    return date.toLocaleDateString("en-US", {
+    return new Intl.DateTimeFormat("en-US", {
       year: "numeric",
       month: "short",
       day: "numeric",
       timeZone: "UTC"
-    });
+    }).format(date);
   }
 
-  function getArticleUrl(postId) {
-    const url = new URL(window.location.href);
+  async function fetchPosts() {
+    const endpoint = new URL(FUNCTION_URL);
+    endpoint.searchParams.set("blog_id", blogId);
 
-    url.search = "";
-    url.searchParams.set("post", postId);
-    url.hash = "article";
-
-    return url.toString();
-  }
-
-  async function verifyWebsite() {
-    const blogs = await fetchRows("blogs", {
-      select: "id,site_url",
-      id: "eq." + blogId,
-      limit: "1"
+    const response = await fetch(endpoint.toString(), {
+      method: "GET",
+      headers: {
+        apikey: SUPABASE_KEY
+      }
     });
 
-    const blog = blogs[0];
+    const result = await response.json();
 
-    if (!blog || !blog.site_url) {
-      throw new Error("No registered website found.");
-    }
-
-    let registeredOrigin;
-
-    try {
-      registeredOrigin = new URL(blog.site_url).origin;
-    } catch {
-      throw new Error("Invalid registered website URL.");
-    }
-
-    if (currentOrigin !== registeredOrigin) {
+    if (!response.ok) {
       throw new Error(
-        "This website is not registered for this blog."
-      );
-    }
-  }
-
-  async function loadArticle(postId) {
-    const rows = await fetchRows("posts", {
-      select: "id,title,content,published_at",
-      id: "eq." + postId,
-      blog_id: "eq." + blogId,
-      status: "eq.published",
-      limit: "1"
-    });
-
-    const post = rows[0];
-
-    if (!post) {
-      throw new Error("Published article not found.");
-    }
-
-    if (!articleTitle || !articleDate || !articleContent) {
-      throw new Error(
-        "Missing article elements: text01, text02 or text03."
+        result.error || "Failed to load posts."
       );
     }
 
-    articleTitle.textContent = post.title || "";
-    articleDate.textContent = formatDate(post.published_at);
-    articleContent.textContent = post.content || "";
+    return result.posts || [];
   }
 
-  async function loadPosts() {
-    const posts = await fetchRows("posts", {
-      select:
-        "id,title,excerpt,published_at,cover_image_url",
-      blog_id: "eq." + blogId,
-      status: "eq.published",
-      order: "published_at.desc",
-      limit: String(PAGE_SIZE)
-    });
-
-    // Keep the original Carrd <li> as a template.
-    const cardTemplate = template.cloneNode(true);
+  function renderGallery(posts) {
     list.replaceChildren();
 
     if (!posts.length) {
-      list.textContent = "No published posts yet.";
+      const message = document.createElement("li");
+      message.textContent = "No published posts yet.";
+      list.appendChild(message);
       return;
     }
 
     posts.forEach(post => {
-      const item = cardTemplate.cloneNode(true);
-      const link = item.querySelector("a.thumbnail");
+      const item = template.cloneNode(true);
+      const link = item.querySelector("a");
       const image = item.querySelector("img");
       const frame = item.querySelector(".frame");
-      const caption = item.querySelector(".caption p");
+      const caption = item.querySelector(".caption");
 
       if (link) {
-        link.href = getArticleUrl(post.id);
+        const url = new URL(window.location.href);
+        url.searchParams.set("post", post.id);
+        url.hash = "article";
+        link.href = url.toString();
       }
 
       if (image) {
-        image.alt = post.title || "";
-
         if (post.cover_image_url) {
           image.src = post.cover_image_url;
+          image.alt = post.title || "";
           image.hidden = false;
+          if (frame) frame.hidden = false;
         } else {
           image.removeAttribute("src");
+          image.alt = "";
           image.hidden = true;
-
           if (frame) frame.hidden = true;
         }
       }
 
       if (caption) {
-        caption.replaceChildren();
+        const heading = document.createElement("strong");
+        heading.textContent = post.title || "Untitled";
 
-        const title = document.createElement("strong");
-        title.textContent = post.title || "Untitled";
-
-        const date = document.createElement("sub");
+        const date = document.createElement("span");
+        date.style.color = "#555555";
+        date.style.display = "inline-block";
         date.textContent = formatDate(post.published_at);
 
-        const dateSpan = document.createElement("span");
-        dateSpan.style.color = "#555555";
-        dateSpan.append(date);
+        const excerpt = document.createElement("span");
+        excerpt.textContent = post.excerpt || "";
 
-        caption.append(
-          title,
+        caption.replaceChildren(
+          heading,
           document.createElement("br"),
-          dateSpan,
+          date,
           document.createElement("br"),
-          document.createTextNode(post.excerpt || "")
+          excerpt
         );
       }
 
@@ -205,28 +125,48 @@
     });
   }
 
-  async function init() {
-    await verifyWebsite();
+  function renderArticle(post) {
+    if (!post) {
+      if (titleElement) titleElement.textContent = "Article not found.";
+      if (dateElement) dateElement.textContent = "";
+      if (contentElement) contentElement.textContent = "";
+      return;
+    }
 
-    const params = new URLSearchParams(window.location.search);
-    const postId = params.get("post");
+    if (titleElement) {
+      titleElement.textContent = post.title || "Untitled";
+    }
+
+    if (dateElement) {
+      dateElement.textContent = formatDate(post.published_at);
+    }
+
+    if (contentElement) {
+      contentElement.textContent = post.content || "";
+    }
+  }
+
+  async function init() {
+    const posts = await fetchPosts();
+    const postId = getPostId();
 
     if (postId) {
-      await loadArticle(postId);
+      const post = posts.find(item => String(item.id) === postId);
+      renderArticle(post);
     } else {
-      await loadPosts();
+      renderGallery(posts);
     }
   }
 
   init().catch(error => {
     console.error("[Carrd CMS]", error);
 
-    if (error.message.includes("not registered")) {
-      list.textContent =
-        "This website is not registered for this blog.";
-    } else {
-      list.textContent =
-        "Unable to load content. Please try again later.";
-    }
+    list.replaceChildren();
+
+    const message = document.createElement("li");
+    message.textContent =
+      "Unable to load posts. Please check your website connection.";
+
+    list.appendChild(message);
   });
 })();
