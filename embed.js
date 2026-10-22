@@ -267,7 +267,8 @@
 
   /** Read the article slug from ?post=slug. */
   function getPostSlug() {
-    return new URL(window.location.href).searchParams.get("post");
+    const match = window.location.hash.match(/^#article\/([^/]+)$/);
+    return match ? decodeURIComponent(match[1]) : null;
   }
 
   /** Format published dates consistently in English and UTC. */
@@ -288,8 +289,8 @@
   /** Build the canonical Carrd URL for a given article slug. */
   function getArticleUrl(slug) {
     const url = new URL(window.location.href);
-    url.searchParams.set("post", slug);
-    url.hash = "article";
+    url.searchParams.delete("post");
+    url.hash = `article/${encodeURIComponent(slug)}`;
     return url.toString();
   }
 
