@@ -1,3 +1,4 @@
+// Embed.js
 // cmsMarkdownToHtml
 (function () {
   if (window.cmsMarkdownToHtml) return;
@@ -220,71 +221,182 @@
 
 
 
-// supabase
-(function () {
+// ============================================================
+// Public CMS Embed
+// Responsibilities:
+// 1. postService: fetch and cache public post data.
+// 2. galleryView: render the Carrd Gallery list.
+// 3. articleView: render a single article.
+// 4. router/init: decide which view to load from the URL.
+// Markdown parsing is defined above and kept separate from data fetching.
+// ============================================================
+
+(function initCarrdCmsEmbed() {
+  // Read the Blog ID from the script tag:
+  // <script src=".../embed.js" data-blog-id="YOUR_BLOG_ID"></script>
   const script = document.currentScript;
   const blogId = script?.dataset.blogId;
 
-  const FUNCTION_URL = "https://zzgcmdtyfjndfvwfguwh.supabase.co/functions/v1/get-blog-posts";
+  // Keep the public endpoints separate: list metadata vs. one full article.
+  const FUNCTIONS_BASE_URL =
+    "https://zzgcmdtyfjndfvwfguwh.supabase.co/functions/v1";
+  const POSTS_LIST_URL = `${FUNCTIONS_BASE_URL}/get-blog-posts`;
+  const SINGLE_POST_URL = `${FUNCTIONS_BASE_URL}/get-blog-post`;
+
+  // This is a publishable key, not the service-role secret.
   const SUPABASE_KEY = "sb_publishable_c6vtRVBqocB6vyOjlyG1tg_3aMfdAYx";
 
+  // Carrd element IDs used by the list and article templates.
   const gallery = document.getElementById("gallery01");
   const list = gallery?.querySelector("ul");
   const titleElement = document.getElementById("text01");
   const dateElement = document.getElementById("text03");
   const contentElement = document.getElementById("text02");
 
-  if (!blogId || !list || !list.querySelector("li")) {
-    console.error(
-      "[Carrd CMS] Missing blog ID or Gallery template."
-    );
-    return;
-  }
+  // Keep the original first Gallery item as a template before replacing the list.
+  const template = list?.querySelector("li")?.cloneNode(true) ?? null;
 
-  const template = list.querySelector("li").cloneNode(true);
+  // In-memory caches prevent duplicate requests during this page lifetime.
+  let postsPromise = null;
+  const postCache = new Map();
+  const postRequests = new Map();
 
-  function getPostId() {
+  // ------------------------------------------------------------
+  // Shared helpers
+  // ------------------------------------------------------------
+
+  /** Read the article slug from ?post=slug. */
+  function getPostSlug() {
     return new URL(window.location.href).searchParams.get("post");
   }
 
+  /** Format published dates consistently in English and UTC. */
   function formatDate(value) {
     if (!value) return "";
 
     const date = new Date(value);
-
     if (Number.isNaN(date.getTime())) return "";
 
     return new Intl.DateTimeFormat("en-US", {
       year: "numeric",
       month: "short",
       day: "numeric",
-      timeZone: "UTC"
+      timeZone: "UTC",
     }).format(date);
   }
 
-  async function fetchPosts() {
-    const endpoint = new URL(FUNCTION_URL);
-    endpoint.searchParams.set("blog_id", blogId);
-
-    const response = await fetch(endpoint.toString(), {
-      method: "GET",
-      headers: {
-        apikey: SUPABASE_KEY
-      }
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      throw new Error(
-        result.error || "Failed to load posts."
-      );
-    }
-
-    return result.posts || [];
+  /** Build the canonical Carrd URL for a given article slug. */
+  function getArticleUrl(slug) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("post", slug);
+    url.hash = "article";
+    return url.toString();
   }
 
+  /** Safely parse a JSON response and surface API errors. */
+  async function readJsonResponse(response, fallbackMessage) {
+    let result;
+
+    try {
+      result = await response.json();
+    } catch {
+      throw new Error(fallbackMessage);
+    }
+
+    if (!response.ok) {
+      throw new Error(result?.error || fallbackMessage);
+    }
+
+    return result;
+  }
+
+  // ------------------------------------------------------------
+  // postService
+  // Handles Edge Function requests and response caching only.
+  // It does not render or manipulate Carrd elements.
+  // ------------------------------------------------------------
+
+  /** Fetch all published post summaries (never full article content). */
+  function fetchPosts() {
+    // Reuse the same promise to avoid duplicate list requests.
+    if (postsPromise) return postsPromise;
+
+    const endpoint = new URL(POSTS_LIST_URL);
+    endpoint.searchParams.set("blog_id", blogId);
+
+    postsPromise = fetch(endpoint.toString(), {
+      method: "GET",
+      headers: { apikey: SUPABASE_KEY },
+    })
+      .then((response) =>
+        readJsonResponse(response, "Failed to load posts.")
+      )
+      .then((result) => {
+        if (!Array.isArray(result.posts)) {
+          throw new Error("Invalid posts response.");
+        }
+        return result.posts;
+      })
+      .catch((error) => {
+        // Allow a later retry if this request fails.
+        postsPromise = null;
+        throw error;
+      });
+
+    return postsPromise;
+  }
+
+  /** Fetch one published article by slug, caching successful results. */
+  function fetchPost(slug) {
+    if (!slug) {
+      return Promise.reject(new Error("Missing article slug."));
+    }
+
+    if (postCache.has(slug)) {
+      return Promise.resolve(postCache.get(slug));
+    }
+
+    // Reuse an in-flight request if the same slug is requested twice.
+    if (postRequests.has(slug)) {
+      return postRequests.get(slug);
+    }
+
+    const endpoint = new URL(SINGLE_POST_URL);
+    endpoint.searchParams.set("blog_id", blogId);
+    endpoint.searchParams.set("slug", slug);
+
+    const request = fetch(endpoint.toString(), {
+      method: "GET",
+      headers: { apikey: SUPABASE_KEY },
+    })
+      .then((response) =>
+        readJsonResponse(response, "Failed to load article.")
+      )
+      .then((result) => {
+        if (!result.post) {
+          throw new Error("Invalid article response.");
+        }
+
+        postCache.set(slug, result.post);
+        return result.post;
+      })
+      .finally(() => {
+        postRequests.delete(slug);
+      });
+
+    postRequests.set(slug, request);
+    return request;
+  }
+
+  // ------------------------------------------------------------
+  // galleryView
+  // Turns post summaries into Carrd Gallery list items.
+  // ------------------------------------------------------------
+
+  /** Render the list of published article summaries. */
   function renderGallery(posts) {
+    if (!list || !template) return;
+
     list.replaceChildren();
 
     if (!posts.length) {
@@ -294,37 +406,48 @@
       return;
     }
 
-    posts.forEach(post => {
+    posts.forEach((post) => {
       const item = template.cloneNode(true);
-      const link = item.querySelector("a");
+      const cardLink = item.querySelector("a");
       const image = item.querySelector("img");
       const frame = item.querySelector(".frame");
       const caption = item.querySelector(".caption");
 
-      if (link) {
-        const url = new URL(window.location.href);
-        url.searchParams.set("post", post.id);
-        url.hash = "article";
-        link.href = url.toString();
+      // Use slug-based URLs for both card navigation and title navigation.
+      const articleUrl = getArticleUrl(post.slug);
+
+      if (cardLink) {
+        cardLink.href = articleUrl;
       }
 
-      if (image) {
-        if (post.cover_image_url) {
-          image.src = post.cover_image_url;
-          image.alt = post.title || "";
-          image.hidden = false;
-          if (frame) frame.hidden = false;
-        } else {
-          image.removeAttribute("src");
-          image.alt = "";
-          image.hidden = true;
-          if (frame) frame.hidden = true;
-        }
+      // Only keep the cover image when a usable HTTP(S) URL is provided.
+      // If there is no cover, remove the img and its empty frame entirely.
+      const coverUrl = getSafeImageUrl(post.cover_image_url);
+
+      if (coverUrl && image) {
+        image.src = coverUrl;
+        image.alt = post.title || "";
+        image.hidden = false;
+
+        if (frame) frame.hidden = false;
+      } else {
+        if (image) image.remove();
+        if (frame) frame.remove();
       }
 
       if (caption) {
         const heading = document.createElement("strong");
         heading.textContent = post.title || "Untitled";
+
+        // If the existing card link wraps the caption, the heading is already
+        // clickable. Otherwise, create a separate link for the title.
+        let titleNode = heading;
+        if (!cardLink || !cardLink.contains(caption)) {
+          const titleLink = document.createElement("a");
+          titleLink.href = articleUrl;
+          titleLink.appendChild(heading);
+          titleNode = titleLink;
+        }
 
         const date = document.createElement("span");
         date.style.color = "#555555";
@@ -332,21 +455,44 @@
         date.textContent = formatDate(post.published_at);
 
         const excerpt = document.createElement("span");
-        excerpt.innerHTML = cmsMarkdownToHtml(post.excerpt || "");
+        excerpt.innerHTML = window.cmsMarkdownToHtml(post.excerpt || "");
 
-        caption.firstElementChild.replaceChildren(
-          heading,
-          document.createElement("br"),
-          date,
-          document.createElement("br"),
-          excerpt
-        );
+        // Keep the Carrd caption's existing first paragraph and its styling.
+        const captionParagraph = caption.querySelector("p");
+
+        if (captionParagraph) {
+          captionParagraph.replaceChildren(
+            titleNode,
+            document.createElement("br"),
+            date,
+            document.createElement("br"),
+            excerpt
+          );
+        }
       }
 
       list.appendChild(item);
     });
   }
 
+  /** Allow only HTTP(S) URLs for cover images. */
+  function getSafeImageUrl(value) {
+    if (typeof value !== "string" || !value.trim()) return null;
+
+    try {
+      const url = new URL(value.trim());
+      return ["https:", "http:"].includes(url.protocol) ? url.href : null;
+    } catch {
+      return null;
+    }
+  }
+
+  // ------------------------------------------------------------
+  // articleView
+  // Fills the Carrd article template with one full published post.
+  // ------------------------------------------------------------
+
+  /** Render an article or a clear English error state. */
   function renderArticle(post) {
     if (!post) {
       if (titleElement) titleElement.textContent = "Article not found.";
@@ -364,31 +510,70 @@
     }
 
     if (contentElement) {
-      contentElement.innerHTML = cmsMarkdownToHtml(post.content || "");
+      contentElement.innerHTML = window.cmsMarkdownToHtml(post.content || "");
     }
   }
+
+  function renderArticleError(error) {
+    console.error("[Carrd CMS] Unable to load article:", error);
+
+    if (titleElement) {
+      titleElement.textContent = "Unable to load article.";
+    }
+    if (dateElement) dateElement.textContent = "";
+    if (contentElement) {
+      contentElement.textContent =
+        "Please check your website connection and try again.";
+    }
+  }
+
+  // ------------------------------------------------------------
+  // Initialization / routing
+  // Load only the data needed for the current URL:
+  // - no ?post=... => list summaries
+  // - ?post=slug   => one full article
+  // ------------------------------------------------------------
 
   async function init() {
-    const posts = await fetchPosts();
-    const postId = getPostId();
+    if (!blogId) {
+      console.error("[Carrd CMS] Missing data-blog-id on the embed script.");
+      return;
+    }
 
-    if (postId) {
-      const post = posts.find(item => String(item.id) === postId);
-      renderArticle(post);
-    } else {
+    const slug = getPostSlug();
+
+    if (slug) {
+      try {
+        const post = await fetchPost(slug);
+        renderArticle(post);
+      } catch (error) {
+        renderArticleError(error);
+      }
+      return;
+    }
+
+    if (!list || !template) {
+      console.error(
+        "[Carrd CMS] Missing Gallery template. Add a Gallery with ID gallery01 and at least one list item."
+      );
+      return;
+    }
+
+    try {
+      const posts = await fetchPosts();
       renderGallery(posts);
+    } catch (error) {
+      console.error("[Carrd CMS] Unable to load posts:", error);
+
+      list.replaceChildren();
+
+      const message = document.createElement("li");
+      message.textContent =
+        "Unable to load posts. Please check your website connection.";
+
+      list.appendChild(message);
     }
   }
 
-  init().catch(error => {
-    console.error("[Carrd CMS]", error);
-
-    list.replaceChildren();
-
-    const message = document.createElement("li");
-    message.textContent =
-      "Unable to load posts. Please check your website connection.";
-
-    list.appendChild(message);
-  });
+  init();
 })();
