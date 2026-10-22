@@ -267,7 +267,10 @@
 
   /** Read the article slug from ?post=slug. */
   function getPostSlug() {
-    const match = window.location.hash.match(/^#article\/([^/]+)$/);
+    const match = window.location.hash.match(
+      /^#article\?slug=([^&]+)$/
+    );
+
     return match ? decodeURIComponent(match[1]) : null;
   }
 
@@ -289,8 +292,7 @@
   /** Build the canonical Carrd URL for a given article slug. */
   function getArticleUrl(slug) {
     const url = new URL(window.location.href);
-    url.searchParams.delete("post");
-    url.hash = `article/${encodeURIComponent(slug)}`;
+    url.hash = `article?slug=${encodeURIComponent(slug)}`;
     return url.toString();
   }
 
