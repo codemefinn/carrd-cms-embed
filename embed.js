@@ -292,9 +292,13 @@
   /** Build the canonical Carrd URL for a given article slug. */
   function getArticleUrl(slug) {
     const url = new URL(window.location.href);
+
+    // Remove the legacy slug query parameter.
+    url.searchParams.delete("slug");
+    url.searchParams.delete("post");
+
     url.hash = `article?slug=${encodeURIComponent(slug)}`;
 
-    console.log("[Carrd CMS] Generated article URL:", url.toString());
     return url.toString();
   }
 
