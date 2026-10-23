@@ -429,8 +429,11 @@
 
       if (cardLink) {
         cardLink.href = articleUrl;
-      }
 
+        console.log("[Carrd CMS] Card link href:", cardLink.href);
+        console.log("[Carrd CMS] Card link outerHTML:", cardLink.outerHTML);
+      }
+      
       // Only keep the cover image when a usable HTTP(S) URL is provided.
       // If there is no cover, remove the img and its empty frame entirely.
       const coverUrl = getSafeImageUrl(post.cover_image_url);
