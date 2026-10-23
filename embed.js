@@ -299,6 +299,8 @@
 
     url.hash = `article?slug=${encodeURIComponent(slug)}`;
 
+    console.log("[Carrd CMS] Generated article URL:", url.toString());
+
     return url.toString();
   }
 
