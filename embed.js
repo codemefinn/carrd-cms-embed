@@ -430,8 +430,16 @@
       if (cardLink) {
         cardLink.href = articleUrl;
 
-        console.log("[Carrd CMS] Card link href:", cardLink.href);
-        console.log("[Carrd CMS] Card link outerHTML:", cardLink.outerHTML);
+        cardLink.addEventListener("click", () => {
+          console.log(
+            "[Carrd CMS] URL at click:",
+            window.location.href
+          );
+          console.log(
+            "[Carrd CMS] Clicked link:",
+            cardLink.href
+          );
+        });
       }
       
       // Only keep the cover image when a usable HTTP(S) URL is provided.
