@@ -510,9 +510,11 @@
 
       button.style.fontWeight = "inherit";
 
-      const paginationStyle = window.getComputedStyle(pagination);
+      const paginationColor = prevLink
+        ? window.getComputedStyle(prevLink).color
+        : window.getComputedStyle(prevLink).color;
 
-      button.style.color = paginationStyle.color;
+      button.style.setProperty("color", paginationColor, "important");
 
       button.style.lineHeight = contentStyle
         ? contentStyle.lineHeight
