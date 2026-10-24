@@ -666,14 +666,14 @@ window.addEventListener("beforeunload", () => {
     });
   }
 
-  // async function loadCurrentArticle(slug) {
-  //   try {
-  //     const post = await fetchPost(slug);
-  //     renderArticle(post);
-  //   } catch (error) {
-  //     renderArticleError(error);
-  //   }
-  // }
+  async function loadCurrentArticle(slug) {
+    try {
+      const post = await fetchPost(slug);
+      renderArticle(post);
+    } catch (error) {
+      renderArticleError(error);
+    }
+  }
 
   // ------------------------------------------------------------
   // Initialization / routing
