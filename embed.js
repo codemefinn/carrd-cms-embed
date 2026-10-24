@@ -262,7 +262,7 @@
   );
 
   // Keep the original first Gallery item as a template before replacing the list.
-  const template = list?.querySelector("li")?.cloneNode(true) ?? null;
+  const template = gallery?.querySelector("li")?.cloneNode(true) ?? null;
 
   // In-memory caches prevent duplicate requests during this page lifetime.
   let postsPromise = null;
