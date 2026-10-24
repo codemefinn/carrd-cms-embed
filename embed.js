@@ -263,6 +263,13 @@
     config.selectors.content
   );
 
+  const pagination = document.getElementById(
+    config.selectors.pagination
+  );
+
+  let currentPage = 1;
+  let allPosts = [];
+
   // Keep the original first Gallery item as a template before replacing the list.
   const template = list?.querySelector("li")?.cloneNode(true) ?? null;
 
@@ -412,36 +419,158 @@
   // galleryView
   // Turns post summaries into Carrd Gallery list items.
   // ------------------------------------------------------------
+  function initPagination() {
+    if (!pagination) {
+      console.warn(
+        "[Carrd CMS] Pagination element not found:",
+        config.selectors.pagination
+      );
+      return;
+    }
+
+    pagination.addEventListener("click", (event) => {
+      const link = event.target.closest("a.n01, a.n02");
+      const pageButton = event.target.closest("button[data-page]");
+
+      if (!link && !pageButton) return;
+
+      event.preventDefault();
+
+      const totalPages = Math.ceil(
+        allPosts.length / config.postsPerPage
+      );
+
+      if (pageButton) {
+        currentPage = Number(pageButton.dataset.page);
+      } else if (link.matches(".n01")) {
+        currentPage--;
+      } else if (link.matches(".n02")) {
+        currentPage++;
+      }
+
+      currentPage = Math.max(
+        1,
+        Math.min(currentPage, totalPages)
+      );
+
+      renderGallery(allPosts);
+    });
+  }
+
+  function renderPagination(totalPages) {
+    if (!pagination) return;
+
+    const prevLink = pagination.querySelector("a.n01");
+    const nextLink = pagination.querySelector("a.n02");
+
+    // Remove previously generated page numbers.
+    pagination
+      .querySelectorAll("[data-cms-page]")
+      .forEach((item) => item.remove());
+
+    const prevItem = prevLink?.closest("li");
+    const nextItem = nextLink?.closest("li");
+
+    if (!prevItem || !nextItem) {
+      console.error(
+        "[Carrd CMS] Pagination requires .n01 and .n02 links."
+      );
+      return;
+    }
+
+    const pageCount = Math.max(0, totalPages);
+
+    // Insert page numbers between the existing arrows.
+    for (let page = 1; page <= pageCount; page++) {
+      const item = document.createElement("li");
+      item.dataset.cmsPage = String(page);
+
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = String(page);
+      button.dataset.page = String(page);
+      button.setAttribute("aria-label", `Page ${page}`);
+
+      // Inherit Carrd's existing typography.
+      button.style.font = "inherit";
+      button.style.color = "inherit";
+      button.style.background = "transparent";
+      button.style.border = "0";
+      button.style.padding = "0 0.35em";
+      button.style.cursor = "pointer";
+
+      if (page === currentPage) {
+        button.style.fontWeight = "700";
+        button.setAttribute("aria-current", "page");
+      }
+
+      item.appendChild(button);
+      pagination.insertBefore(item, nextItem);
+    }
+
+    // Disable arrows when there is no previous or next page.
+    const disableArrow = (link, disabled) => {
+      if (!link) return;
+
+      link.setAttribute("aria-disabled", String(disabled));
+      link.style.opacity = disabled ? "0.35" : "";
+      link.style.pointerEvents = disabled ? "none" : "";
+    };
+
+    disableArrow(prevLink, currentPage <= 1 || pageCount === 0);
+    disableArrow(nextLink, currentPage >= pageCount || pageCount === 0);
+
+    pagination.hidden = pageCount <= 1;
+  }
 
   /** Render the list of published article summaries. */
   function renderGallery(posts) {
     if (!list || !template) return;
 
+    allPosts = posts;
+
+    const totalPages = Math.ceil(
+      allPosts.length / config.postsPerPage
+    );
+
+    // Keep the current page valid if the number of posts changes.
+    currentPage = Math.max(
+      1,
+      Math.min(currentPage, Math.max(totalPages, 1))
+    );
+
+    const startIndex =
+      (currentPage - 1) * config.postsPerPage;
+
+    const visiblePosts = allPosts.slice(
+      startIndex,
+      startIndex + config.postsPerPage
+    );
+
     list.replaceChildren();
 
-    if (!posts.length) {
+    if (!allPosts.length) {
       const message = document.createElement("li");
       message.textContent = "No published posts yet.";
       list.appendChild(message);
+
+      renderPagination(0);
       return;
     }
 
-    posts.forEach((post) => {
+    visiblePosts.forEach((post) => {
       const item = template.cloneNode(true);
       const cardLink = item.querySelector("a");
       const image = item.querySelector("img");
       const frame = item.querySelector(".frame");
       const caption = item.querySelector(".caption");
 
-      // Use slug-based URLs for both card navigation and title navigation.
-    const articleUrl = getArticleUrl(post.slug);
+      const articleUrl = getArticleUrl(post.slug);
 
-    if (cardLink) {
-      cardLink.href = articleUrl;
-    }
-      
-      // Only keep the cover image when a usable HTTP(S) URL is provided.
-      // If there is no cover, remove the img and its empty frame entirely.
+      if (cardLink) {
+        cardLink.href = articleUrl;
+      }
+
       const coverUrl = getSafeImageUrl(post.cover_image_url);
 
       if (coverUrl && image) {
@@ -459,9 +588,8 @@
         const heading = document.createElement("strong");
         heading.textContent = post.title || "Untitled";
 
-        // If the existing card link wraps the caption, the heading is already
-        // clickable. Otherwise, create a separate link for the title.
         let titleNode = heading;
+
         if (!cardLink || !cardLink.contains(caption)) {
           const titleLink = document.createElement("a");
           titleLink.href = articleUrl;
@@ -475,9 +603,11 @@
         date.textContent = formatDate(post.published_at);
 
         const excerpt = document.createElement("span");
-        excerpt.innerHTML = window.cmsMarkdownToHtml(post.excerpt || "");
+        excerpt.innerHTML = window.cmsMarkdownToHtml(
+          post.excerpt || ""
+        );
 
-        // Keep the Carrd caption's existing first paragraph and its styling.
+        // Preserve the original Carrd caption paragraph.
         const captionParagraph = caption.querySelector("p");
 
         if (captionParagraph) {
@@ -493,6 +623,8 @@
 
       list.appendChild(item);
     });
+
+    renderPagination(totalPages);
   }
 
   /** Allow only HTTP(S) URLs for cover images. */
@@ -583,6 +715,8 @@
 
     try {
       const posts = await fetchPosts();
+
+      currentPage = 1;
       renderGallery(posts);
     } catch (error) {
       console.error("[Carrd CMS] Unable to load posts:", error);
@@ -672,6 +806,8 @@
       console.error("[Carrd CMS] Missing data-blog-id on the embed script.");
       return;
     }
+
+    initPagination();
 
     const slug = getPostSlug();
 
