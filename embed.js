@@ -277,6 +277,7 @@
   let postsPromise = null;
   const postCache = new Map();
   const postRequests = new Map();
+  const postCardCache = new Map();
 
   // ------------------------------------------------------------
   // Shared helpers
@@ -512,15 +513,9 @@
 
       button.style.fontWeight = "inherit";
 
-      // const paginationColor = caption
-      //   ? window.getComputedStyle(caption).color
-      //   : window.getComputedStyle(caption).color;
-
-         button.style.color = captionStyle
+      button.style.color = captionStyle
         ? captionStyle.color
         : "inherit";
-
-      // button.style.setProperty("color", paginationColor, "important");
 
       button.style.lineHeight = captionStyle
         ? captionStyle.lineHeight
@@ -543,6 +538,7 @@
         button.setAttribute("aria-current", "page");
         button.disabled = true;
         button.style.cursor = "default";
+        button.style.textDecoration = 'underline';
       }
 
       item.appendChild(button);
@@ -565,6 +561,7 @@
   }
 
   /** Render the list of published article summaries. */
+
   function renderGallery(posts) {
     if (!list || !template) return;
 
@@ -574,7 +571,6 @@
       allPosts.length / config.postsPerPage
     );
 
-    // Keep the current page valid if the number of posts changes.
     currentPage = Math.max(
       1,
       Math.min(currentPage, Math.max(totalPages, 1))
@@ -588,9 +584,9 @@
       startIndex + config.postsPerPage
     );
 
-    list.replaceChildren();
-
     if (!allPosts.length) {
+      list.replaceChildren();
+
       const message = document.createElement("li");
       message.textContent = "No published posts yet.";
       list.appendChild(message);
@@ -599,74 +595,88 @@
       return;
     }
 
-    visiblePosts.forEach((post) => {
-      const item = template.cloneNode(true);
-      const cardLink = item.querySelector("a");
-      const image = item.querySelector("img");
-      const frame = item.querySelector(".frame");
-      const caption = item.querySelector(".caption");
+    // Reuse cached cards instead of cloning them on every page change.
+    const visibleItems = visiblePosts.map((post) => {
+      const cacheKey = post.slug;
 
-      const articleUrl = getArticleUrl(post.slug);
+      let item = postCardCache.get(cacheKey);
 
-      if (cardLink) {
-        cardLink.href = articleUrl;
-      }
+      if (!item) {
+        item = template.cloneNode(true);
 
-      const coverUrl = getSafeImageUrl(post.cover_image_url);
+        const cardLink = item.querySelector("a");
+        const image = item.querySelector("img");
+        const frame = item.querySelector(".frame");
+        const caption = item.querySelector(".caption");
 
-      if (coverUrl && image) {
-        image.src = coverUrl;
-        image.alt = post.title || "";
-        image.hidden = false;
+        const articleUrl = getArticleUrl(post.slug);
 
-        if (frame) frame.hidden = false;
-      } else {
-        if (image) image.remove();
-        if (frame) frame.remove();
-      }
-
-      if (caption) {
-        const heading = document.createElement("strong");
-        heading.textContent = post.title || "Untitled";
-
-        let titleNode = heading;
-
-        if (!cardLink || !cardLink.contains(caption)) {
-          const titleLink = document.createElement("a");
-          titleLink.href = articleUrl;
-          titleLink.appendChild(heading);
-          titleNode = titleLink;
+        if (cardLink) {
+          cardLink.href = articleUrl;
         }
 
-        const date = document.createElement("span");
-        date.style.color = "#555555";
-        date.style.display = "inline-block";
-        date.textContent = formatDate(post.published_at);
+        const coverUrl = getSafeImageUrl(post.cover_image_url);
 
-        const excerpt = document.createElement("span");
-        excerpt.innerHTML = window.cmsMarkdownToHtml(
-          post.excerpt || ""
-        );
+        if (coverUrl && image) {
+          image.src = coverUrl;
+          image.alt = post.title || "";
+          image.hidden = false;
 
-        // Preserve the original Carrd caption paragraph.
-        const captionParagraph = caption.querySelector("p");
+          if (frame) frame.hidden = false;
+        } else {
+          if (image) image.remove();
+          if (frame) frame.remove();
+        }
 
-        if (captionParagraph) {
-          captionParagraph.replaceChildren(
-            titleNode,
-            document.createElement("br"),
-            date,
-            document.createElement("br"),
-            excerpt
+        if (caption) {
+          const heading = document.createElement("strong");
+          heading.textContent = post.title || "Untitled";
+
+          let titleNode = heading;
+
+          if (!cardLink || !cardLink.contains(caption)) {
+            const titleLink = document.createElement("a");
+            titleLink.href = articleUrl;
+            titleLink.appendChild(heading);
+            titleNode = titleLink;
+          }
+
+          const date = document.createElement("span");
+          date.style.color = "#555555";
+          date.style.display = "inline-block";
+          date.textContent = formatDate(post.published_at);
+
+          const excerpt = document.createElement("span");
+          excerpt.innerHTML = window.cmsMarkdownToHtml(
+            post.excerpt || ""
           );
+
+          const captionParagraph = caption.querySelector("p");
+
+          if (captionParagraph) {
+            captionParagraph.replaceChildren(
+              titleNode,
+              document.createElement("br"),
+              date,
+              document.createElement("br"),
+              excerpt
+            );
+          }
         }
+
+        postCardCache.set(cacheKey, item);
       }
 
-      list.appendChild(item);
+      return item;
     });
+
+    // Move existing card nodes into the gallery in the current page order.
+    // This avoids recreating cached image elements when revisiting a page.
+    list.replaceChildren(...visibleItems);
 
     renderPagination(totalPages);
   }
+
 
   /** Allow only HTTP(S) URLs for cover images. */
   function getSafeImageUrl(value) {
