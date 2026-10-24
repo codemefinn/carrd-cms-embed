@@ -569,6 +569,73 @@ window.addEventListener("beforeunload", () => {
     }, true);
   }
 
+  // function navigateToArticle(slug) {
+  //   const url = new URL(window.location.href);
+
+  //   url.searchParams.delete("post");
+  //   url.searchParams.set("slug", slug);
+  //   url.hash = "article";
+
+  //   history.pushState({ cmsArticle: true }, "", url);
+
+  //   loadCurrentArticle();
+  // }
+
+  // async function loadCurrentArticle() {
+  //   const slug = getPostSlug();
+
+  //   if (!slug) return;
+
+  //   try {
+  //     const post = await fetchPost(slug);
+  //     renderArticle(post);
+  //   } catch (error) {
+  //     renderArticleError(error);
+  //   }
+  // }
+
+  // function navigateToGallery() {
+  // //   const url = new URL(window.location.href);
+
+  // //   url.searchParams.delete("slug");
+  // //   url.searchParams.delete("post");
+  // //   url.hash = "articles";
+
+  // //   history.pushState({ cmsArticle: false }, "", url);
+
+  // //   showCarrdSection("articles");
+  // }
+
+  // function initArticleNavigation() {
+  //   document.addEventListener("click", (event) => {
+  //     const link = event.target.closest("a[href]");
+
+  //     if (!link) return;
+
+  //     const url = new URL(link.href, window.location.href);
+
+  //     if (url.origin !== window.location.origin) return;
+
+  //     const slug = url.searchParams.get("slug");
+
+  //     if (!slug || url.hash !== "#article") return;
+
+  //     event.preventDefault();
+  //     navigateToArticle(slug);
+  //   });
+
+  //   window.addEventListener("popstate", () => {
+  //     const slug = getPostSlug();
+
+  //     if (slug) {
+  //       showCarrdSection("article");
+  //       loadCurrentArticle();
+  //     } else {
+  //       showCarrdSection("articles");
+  //     }
+  //   });
+  // }
+
   // ------------------------------------------------------------
   // Initialization / routing
   // Load only the data needed for the current URL:
@@ -577,22 +644,25 @@ window.addEventListener("beforeunload", () => {
   // ------------------------------------------------------------
 
   async function init() {
+    // initArticleNavigation();
     initSectionNavigation();
+    
+    document.addEventListener("click", (event) => {
+      const link = event.target.closest("a[href]");
+      if (!link) return;
+
+      const url = new URL(link.href, window.location.href);
+
+      if (
+        url.searchParams.has("slug") &&
+        url.hash === "#article"
+      ) {
+        console.log("[Carrd CMS] Article link intercepted:", url.href);
+      }
+    });
 
     if (!blogId) {
       console.error("[Carrd CMS] Missing data-blog-id on the embed script.");
-      return;
-    }
-
-    const slug = getPostSlug();
-
-    if (slug) {
-      try {
-        const post = await fetchPost(slug);
-        renderArticle(post);
-      } catch (error) {
-        renderArticleError(error);
-      }
       return;
     }
 
