@@ -267,11 +267,8 @@
 
   /** Read the article slug from ?post=slug. */
   function getPostSlug() {
-    const match = window.location.hash.match(
-      /^#article\?slug=([^&]+)$/
-    );
-
-    return match ? decodeURIComponent(match[1]) : null;
+    const url = new URL(window.location.href);
+    return url.searchParams.get("slug");
   }
 
   /** Format published dates consistently in English and UTC. */
@@ -293,13 +290,15 @@
   function getArticleUrl(slug) {
     const url = new URL(window.location.href);
 
-    // Remove the legacy slug query parameter.
+    // Remove only the CMS article parameters.
     url.searchParams.delete("slug");
     url.searchParams.delete("post");
 
-    url.hash = `article?slug=${encodeURIComponent(slug)}`;
+    // Add the selected article slug.
+    url.searchParams.set("slug", slug);
 
-    console.log("[Carrd CMS] Generated article URL:", url.toString());
+    // Keep Carrd's native section navigation.
+    url.hash = "article";
 
     return url.toString();
   }
@@ -425,22 +424,11 @@
       const caption = item.querySelector(".caption");
 
       // Use slug-based URLs for both card navigation and title navigation.
-      const articleUrl = getArticleUrl(post.slug);
+    const articleUrl = getArticleUrl(post.slug);
 
-      if (cardLink) {
-        cardLink.href = articleUrl;
-
-        cardLink.addEventListener("click", () => {
-          console.log(
-            "[Carrd CMS] URL at click:",
-            window.location.href
-          );
-          console.log(
-            "[Carrd CMS] Clicked link:",
-            cardLink.href
-          );
-        });
-      }
+    if (cardLink) {
+      cardLink.href = articleUrl;
+    }
       
       // Only keep the cover image when a usable HTTP(S) URL is provided.
       // If there is no cover, remove the img and its empty frame entirely.
