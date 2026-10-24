@@ -249,6 +249,8 @@
     config.selectors.gallery
   );
 
+  const list = gallery?.querySelector("ul");
+
   const titleElement = document.getElementById(
     config.selectors.title
   );
@@ -262,7 +264,7 @@
   );
 
   // Keep the original first Gallery item as a template before replacing the list.
-  const template = gallery?.querySelector("li")?.cloneNode(true) ?? null;
+  const template = list?.querySelector("li")?.cloneNode(true) ?? null;
 
   // In-memory caches prevent duplicate requests during this page lifetime.
   let postsPromise = null;
