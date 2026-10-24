@@ -485,6 +485,10 @@
       const item = document.createElement("li");
       item.dataset.cmsPage = String(page);
 
+      item.style.display = "flex";
+      item.style.alignItems = "center";
+      item.style.justifyContent = "center";
+
       const button = document.createElement("button");
       button.type = "button";
       button.textContent = String(page);
@@ -492,12 +496,39 @@
       button.setAttribute("aria-label", `Page ${page}`);
 
       // Inherit Carrd's existing typography.
-      button.style.font = "inherit";
-      button.style.color = "inherit";
+      const contentStyle = contentElement
+        ? window.getComputedStyle(contentElement)
+        : null;
+
+      button.style.fontFamily = contentStyle
+        ? contentStyle.fontFamily
+        : "inherit";
+
+      button.style.fontSize = contentStyle
+        ? contentStyle.fontSize
+        : "inherit";
+
+      button.style.fontWeight = "inherit";
+
+      const paginationStyle = window.getComputedStyle(pagination);
+
+      button.style.color = paginationStyle.color;
+
+      button.style.lineHeight = contentStyle
+        ? contentStyle.lineHeight
+        : "normal";
+
       button.style.background = "transparent";
       button.style.border = "0";
       button.style.padding = "0 0.35em";
+      button.style.margin = "0";
       button.style.cursor = "pointer";
+
+      // Center the page number vertically.
+      button.style.display = "inline-flex";
+      button.style.alignItems = "center";
+      button.style.justifyContent = "center";
+      button.style.verticalAlign = "middle";
 
       if (page === currentPage) {
         button.style.fontWeight = "700";
