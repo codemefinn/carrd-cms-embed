@@ -655,24 +655,25 @@ window.addEventListener("beforeunload", () => {
 
       const slug = url.searchParams.get("slug");
 
-      history.pushState(
-        { cmsArticle: true },
-        "",
-        url
-      );
+      // Update the URL without reloading the page.
+      history.pushState(history.state, "", url);
 
+      // Trigger Carrd's native section navigation.
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+
+      // Load and render the selected article.
       loadCurrentArticle(slug);
     });
   }
 
-  async function loadCurrentArticle(slug) {
-    try {
-      const post = await fetchPost(slug);
-      renderArticle(post);
-    } catch (error) {
-      renderArticleError(error);
-    }
-  }
+  // async function loadCurrentArticle(slug) {
+  //   try {
+  //     const post = await fetchPost(slug);
+  //     renderArticle(post);
+  //   } catch (error) {
+  //     renderArticleError(error);
+  //   }
+  // }
 
   // ------------------------------------------------------------
   // Initialization / routing
