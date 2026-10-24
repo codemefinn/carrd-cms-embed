@@ -636,6 +636,44 @@ window.addEventListener("beforeunload", () => {
   //   });
   // }
 
+  function initArticleNavigation() {
+    document.addEventListener("click", (event) => {
+      const link = event.target.closest("a[href]");
+      if (!link) return;
+
+      const url = new URL(link.href, window.location.href);
+
+      if (
+        url.origin !== window.location.origin ||
+        !url.searchParams.has("slug") ||
+        url.hash !== "#article"
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+
+      const slug = url.searchParams.get("slug");
+
+      history.pushState(
+        { cmsArticle: true },
+        "",
+        url
+      );
+
+      loadCurrentArticle(slug);
+    });
+  }
+
+  async function loadCurrentArticle(slug) {
+    try {
+      const post = await fetchPost(slug);
+      renderArticle(post);
+    } catch (error) {
+      renderArticleError(error);
+    }
+  }
+
   // ------------------------------------------------------------
   // Initialization / routing
   // Load only the data needed for the current URL:
@@ -644,22 +682,8 @@ window.addEventListener("beforeunload", () => {
   // ------------------------------------------------------------
 
   async function init() {
-    // initArticleNavigation();
     initSectionNavigation();
-    
-    document.addEventListener("click", (event) => {
-      const link = event.target.closest("a[href]");
-      if (!link) return;
-
-      const url = new URL(link.href, window.location.href);
-
-      if (
-        url.searchParams.has("slug") &&
-        url.hash === "#article"
-      ) {
-        console.log("[Carrd CMS] Article link intercepted:", url.href);
-      }
-    });
+    initArticleNavigation();
 
     if (!blogId) {
       console.error("[Carrd CMS] Missing data-blog-id on the embed script.");
