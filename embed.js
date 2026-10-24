@@ -543,7 +543,7 @@
       const rawHref = link.getAttribute("href");
       if (!rawHref || !rawHref.startsWith("#")) return;
 
-      // Keep the article URL unchanged.
+      // Keep the article URL unchanged when clicking #article.
       if (rawHref === "#article") return;
 
       const url = new URL(window.location.href);
@@ -553,7 +553,23 @@
       url.searchParams.delete("post");
 
       history.replaceState(history.state, "", url);
+
+      // Restore the post list when navigating to #articles.
+      if (rawHref === "#articles") {
+        loadCurrentGallery();
+      }
     }, true);
+  }
+
+  async function loadCurrentGallery() {
+    if (!list || !template) return;
+
+    try {
+      const posts = await fetchPosts();
+      renderGallery(posts);
+    } catch (error) {
+      console.error("[Carrd CMS] Unable to load posts:", error);
+    }
   }
 
   function initArticleNavigation() {
