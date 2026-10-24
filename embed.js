@@ -219,6 +219,17 @@
   };
 })();
 
+window.addEventListener("pageshow", event => {
+  console.log("[Carrd CMS] Page shown:", {
+    persisted: event.persisted,
+    url: window.location.href
+  });
+});
+
+window.addEventListener("beforeunload", () => {
+  console.log("[Carrd CMS] Page is unloading");
+});
+
 
 
 // ============================================================
