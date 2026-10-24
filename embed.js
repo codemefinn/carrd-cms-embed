@@ -245,11 +245,21 @@
   const SUPABASE_KEY = "sb_publishable_c6vtRVBqocB6vyOjlyG1tg_3aMfdAYx";
 
   // Carrd element IDs used by the list and article templates.
-  const gallery = document.getElementById("gallery01");
-  const list = gallery?.querySelector("ul");
-  const titleElement = document.getElementById("text01");
-  const dateElement = document.getElementById("text03");
-  const contentElement = document.getElementById("text02");
+  const gallery = document.getElementById(
+    config.selectors.gallery
+  );
+
+  const titleElement = document.getElementById(
+    config.selectors.title
+  );
+
+  const dateElement = document.getElementById(
+    config.selectors.date
+  );
+
+  const contentElement = document.getElementById(
+    config.selectors.content
+  );
 
   // Keep the original first Gallery item as a template before replacing the list.
   const template = list?.querySelector("li")?.cloneNode(true) ?? null;
@@ -544,7 +554,12 @@
       if (!rawHref || !rawHref.startsWith("#")) return;
 
       // Keep the article URL unchanged when clicking #article.
-      if (rawHref === "#article") return;
+      const {
+        articlesSection,
+        articleSection
+      } = config.selectors;
+
+      if (rawHref === `#${articleSection}`) return;
 
       const url = new URL(window.location.href);
 
@@ -555,7 +570,7 @@
       history.replaceState(history.state, "", url);
 
       // Restore the post list when navigating to #articles.
-      if (rawHref === "#articles") {
+      if (rawHref === `#${articlesSection}`) {
         loadCurrentGallery();
       }
     }, true);
