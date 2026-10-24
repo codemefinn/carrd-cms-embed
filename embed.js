@@ -569,73 +569,6 @@ window.addEventListener("beforeunload", () => {
     }, true);
   }
 
-  // function navigateToArticle(slug) {
-  //   const url = new URL(window.location.href);
-
-  //   url.searchParams.delete("post");
-  //   url.searchParams.set("slug", slug);
-  //   url.hash = "article";
-
-  //   history.pushState({ cmsArticle: true }, "", url);
-
-  //   loadCurrentArticle();
-  // }
-
-  // async function loadCurrentArticle() {
-  //   const slug = getPostSlug();
-
-  //   if (!slug) return;
-
-  //   try {
-  //     const post = await fetchPost(slug);
-  //     renderArticle(post);
-  //   } catch (error) {
-  //     renderArticleError(error);
-  //   }
-  // }
-
-  // function navigateToGallery() {
-  // //   const url = new URL(window.location.href);
-
-  // //   url.searchParams.delete("slug");
-  // //   url.searchParams.delete("post");
-  // //   url.hash = "articles";
-
-  // //   history.pushState({ cmsArticle: false }, "", url);
-
-  // //   showCarrdSection("articles");
-  // }
-
-  // function initArticleNavigation() {
-  //   document.addEventListener("click", (event) => {
-  //     const link = event.target.closest("a[href]");
-
-  //     if (!link) return;
-
-  //     const url = new URL(link.href, window.location.href);
-
-  //     if (url.origin !== window.location.origin) return;
-
-  //     const slug = url.searchParams.get("slug");
-
-  //     if (!slug || url.hash !== "#article") return;
-
-  //     event.preventDefault();
-  //     navigateToArticle(slug);
-  //   });
-
-  //   window.addEventListener("popstate", () => {
-  //     const slug = getPostSlug();
-
-  //     if (slug) {
-  //       showCarrdSection("article");
-  //       loadCurrentArticle();
-  //     } else {
-  //       showCarrdSection("articles");
-  //     }
-  //   });
-  // }
-
   function initArticleNavigation() {
     document.addEventListener("click", (event) => {
       const link = event.target.closest("a[href]");
@@ -664,13 +597,41 @@ window.addEventListener("beforeunload", () => {
       // Load and render the selected article.
       loadCurrentArticle(slug);
     });
+
+    window.addEventListener("popstate", () => {
+      // Synchronize Carrd's section with the current URL.
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+
+      const slug = getPostSlug();
+
+      // Restore the article when navigating back or forward
+      // to an article URL.
+      if (slug && window.location.hash === "#article") {
+        loadCurrentArticle(slug);
+      }
+    });
   }
 
+  let articleRequestId = 0;
+
   async function loadCurrentArticle(slug) {
+    const requestId = ++articleRequestId;
+
+    // Clear the previous article immediately.
+    if (titleElement) titleElement.textContent = "Loading article...";
+    if (dateElement) dateElement.textContent = "";
+    if (contentElement) contentElement.replaceChildren();
+
     try {
       const post = await fetchPost(slug);
+
+      // Ignore stale responses from earlier clicks.
+      if (requestId !== articleRequestId) return;
+
       renderArticle(post);
     } catch (error) {
+      if (requestId !== articleRequestId) return;
+
       renderArticleError(error);
     }
   }
