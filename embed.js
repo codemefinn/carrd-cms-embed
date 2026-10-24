@@ -219,19 +219,6 @@
   };
 })();
 
-window.addEventListener("pageshow", event => {
-  console.log("[Carrd CMS] Page shown:", {
-    persisted: event.persisted,
-    url: window.location.href
-  });
-});
-
-window.addEventListener("beforeunload", () => {
-  console.log("[Carrd CMS] Page is unloading");
-});
-
-
-
 // ============================================================
 // Public CMS Embed
 // Responsibilities:
@@ -643,6 +630,7 @@ window.addEventListener("beforeunload", () => {
   // - ?post=slug   => one full article
   // ------------------------------------------------------------
 
+
   async function init() {
     initSectionNavigation();
     initArticleNavigation();
@@ -652,6 +640,26 @@ window.addEventListener("beforeunload", () => {
       return;
     }
 
+    const slug = getPostSlug();
+
+    // Load the requested article when the URL contains a slug.
+    if (slug && window.location.hash === "#article") {
+      try {
+        console.log("[Carrd CMS] Initial slug:", slug);
+
+        const post = await fetchPost(slug);
+
+        console.log("[Carrd CMS] Article fetched:", post);
+
+        renderArticle(post);
+      } catch (error) {
+        console.error("[Carrd CMS] Initial article load failed:", error);
+        renderArticleError(error);
+      }
+      return;
+    }
+
+    // Only require the Gallery when displaying the post list.
     if (!list || !template) {
       console.error(
         "[Carrd CMS] Missing Gallery template. Add a Gallery with ID gallery01 and at least one list item."
@@ -674,6 +682,7 @@ window.addEventListener("beforeunload", () => {
       list.appendChild(message);
     }
   }
+
 
   init();
 })();
