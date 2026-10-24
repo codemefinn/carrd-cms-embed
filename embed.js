@@ -537,6 +537,27 @@
     }
   }
 
+  function initSectionNavigation() {
+    document.addEventListener("click", event => {
+      const link = event.target.closest("a[href]");
+      if (!link) return;
+
+      const rawHref = link.getAttribute("href");
+      if (!rawHref || !rawHref.startsWith("#")) return;
+
+      // Keep the article URL unchanged.
+      if (rawHref === "#article") return;
+
+      const url = new URL(window.location.href);
+
+      // Remove CMS article parameters only.
+      url.searchParams.delete("slug");
+      url.searchParams.delete("post");
+
+      history.replaceState(history.state, "", url);
+    }, true);
+  }
+
   // ------------------------------------------------------------
   // Initialization / routing
   // Load only the data needed for the current URL:
@@ -545,6 +566,8 @@
   // ------------------------------------------------------------
 
   async function init() {
+    initSectionNavigation();
+
     if (!blogId) {
       console.error("[Carrd CMS] Missing data-blog-id on the embed script.");
       return;
