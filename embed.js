@@ -495,31 +495,35 @@
       button.dataset.page = String(page);
       button.setAttribute("aria-label", `Page ${page}`);
 
+      const caption = gallery.querySelector('.caption > p');
+
       // Inherit Carrd's existing typography.
-      const contentStyle = contentElement
-        ? window.getComputedStyle(contentElement)
+      const captionStyle = caption
+        ? window.getComputedStyle(caption)
         : null;
 
-      button.style.fontFamily = contentStyle
-        ? contentStyle.fontFamily
+      button.style.fontFamily = captionStyle
+        ? captionStyle.fontFamily
         : "inherit";
 
-      button.style.fontSize = contentStyle
-        ? contentStyle.fontSize
+      button.style.fontSize = captionStyle
+        ? captionStyle.fontSize
         : "inherit";
 
       button.style.fontWeight = "inherit";
 
-      const caption = gallery.querySelector('.caption > p');
+      // const paginationColor = caption
+      //   ? window.getComputedStyle(caption).color
+      //   : window.getComputedStyle(caption).color;
 
-      const paginationColor = caption
-        ? window.getComputedStyle(caption).color
-        : window.getComputedStyle(caption).color;
-        
-      button.style.setProperty("color", paginationColor, "important");
+         button.style.color = captionStyle
+        ? captionStyle.color
+        : "inherit";
 
-      button.style.lineHeight = contentStyle
-        ? contentStyle.lineHeight
+      // button.style.setProperty("color", paginationColor, "important");
+
+      button.style.lineHeight = captionStyle
+        ? captionStyle.lineHeight
         : "normal";
 
       button.style.background = "transparent";
@@ -537,6 +541,8 @@
       if (page === currentPage) {
         button.style.fontWeight = "700";
         button.setAttribute("aria-current", "page");
+        button.disabled = true;
+        button.style.cursor = "default";
       }
 
       item.appendChild(button);
